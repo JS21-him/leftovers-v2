@@ -2,6 +2,9 @@ module.exports = function (babel) {
   babel.cache(true);
   return {
     presets: ['babel-preset-expo'],
-    plugins: ['react-native-reanimated/plugin'],
+    plugins: [
+      ['module-resolver', { root: ['.'], alias: { '@': '.' } }],
+      'react-native-reanimated/plugin',
+    ],
   };
 };
