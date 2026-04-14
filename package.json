@@ -48,6 +48,7 @@
     "jest": "^30.3.0",
     "jest-expo": "~54.0.0",
     "react-test-renderer": "19.1.0",
+    "supabase": "^2.91.1",
     "typescript": "~5.9.2"
   },
   "private": true
