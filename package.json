@@ -12,8 +12,11 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "setupFiles": [
+      "./jest.presetup.js"
+    ],
     "setupFilesAfterEnv": [
-      "@testing-library/jest-native/extend-expect"
+      "./jest.setup.ts"
     ],
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|@supabase/.*|react-native-purchases)"
