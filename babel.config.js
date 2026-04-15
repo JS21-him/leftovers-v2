@@ -1,10 +1,12 @@
 module.exports = function (babel) {
   babel.cache(true);
+  const isTest = process.env.NODE_ENV === 'test' || process.env.BABEL_ENV === 'test';
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      [require('expo/internal/babel-preset'), isTest ? { reanimated: false } : {}],
+    ],
     plugins: [
       ['module-resolver', { root: ['.'], alias: { '@': '.' } }],
-      'react-native-reanimated/plugin',
     ],
   };
 };
