@@ -1,0 +1,80 @@
+import Anthropic from 'npm:@anthropic-ai/sdk';
+
+const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+if (!apiKey) throw new Error('ANTHROPIC_API_KEY secret is not set');
+
+const anthropic = new Anthropic({ apiKey });
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await req.json().catch(() => null);
+    const { fridgeItems, householdSize, preferences } = body ?? {};
+
+    if (!Array.isArray(fridgeItems)) {
+      return new Response(JSON.stringify({ error: 'fridgeItems array is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Cap input size and coerce elements to strings
+    const safeItems: string[] = fridgeItems.slice(0, 100).map(String);
+
+    const prefStr = Array.isArray(preferences) && preferences.length > 0
+      ? `Dietary preferences: ${preferences.join(', ')}.`
+      : '';
+    const size = typeof householdSize === 'number' ? householdSize : 2;
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: `I have these items in my fridge: ${safeItems.length > 0 ? safeItems.join(', ') : 'nothing'}.
+Household size: ${size} people. ${prefStr}
+Build a practical weekly grocery shopping list for what I need to buy.
+Do not include items I already have unless they are nearly empty.
+Return a JSON array of objects with: name (string), quantity (number), unit (string).
+Return only the JSON array.`,
+      }],
+    });
+
+    const block = message.content[0];
+    if (block.type !== 'text') {
+      throw new Error(`Unexpected Claude response type: ${block.type}`);
+    }
+
+    let items = [];
+    try {
+      items = JSON.parse(block.text.replace(/```json?|```/g, '').trim());
+    } catch {
+      throw new Error('Claude returned malformed JSON');
+    }
+
+    return new Response(JSON.stringify({ items }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
