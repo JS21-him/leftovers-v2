@@ -15,7 +15,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || segments.length === 0) return;
     const inAuthGroup = segments[0] === '(auth)';
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/onboarding');

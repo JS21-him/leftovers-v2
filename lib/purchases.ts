@@ -1,9 +1,16 @@
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import Constants from 'expo-constants';
 import { Config } from '@/constants/config';
 
 export function initializePurchases() {
-  Purchases.setLogLevel(LOG_LEVEL.ERROR);
-  Purchases.configure({ apiKey: Config.revenueCatKey });
+  // RevenueCat requires native store access — not available in Expo Go
+  if (Constants.appOwnership === 'expo') return;
+  try {
+    Purchases.setLogLevel(LOG_LEVEL.ERROR);
+    Purchases.configure({ apiKey: Config.revenueCatKey });
+  } catch {
+    // Non-fatal: app works without premium features
+  }
 }
 
 export async function checkPremiumEntitlement(): Promise<boolean> {
