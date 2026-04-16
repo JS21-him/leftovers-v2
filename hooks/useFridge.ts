@@ -17,6 +17,16 @@ export interface NewFridgeItem {
   expiry_date: string | null;
 }
 
+async function getHouseholdId(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('household_members')
+    .select('household_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single();
+  return data?.household_id ?? null;
+}
+
 export function useFridge() {
   const [items, setItems] = useState<FridgeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,11 +38,17 @@ export function useFridge() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError) { setError(authError.message); setLoading(false); return; }
     if (!user) { setLoading(false); return; }
-    const { data, error: fetchError } = await supabase
+
+    const householdId = await getHouseholdId(user.id);
+    const query = supabase
       .from('fridge_items')
       .select('*')
-      .eq('user_id', user.id)
       .order('expiry_date', { ascending: true, nullsFirst: false });
+
+    const { data, error: fetchError } = householdId
+      ? await query.eq('household_id', householdId)
+      : await query.eq('user_id', user.id);
+
     if (fetchError) setError(fetchError.message);
     else setItems(data ?? []);
     setLoading(false);
@@ -44,9 +60,11 @@ export function useFridge() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError) { setError(authError.message); return null; }
     if (!user) return null;
+
+    const householdId = await getHouseholdId(user.id);
     const { data, error: insertError } = await supabase
       .from('fridge_items')
-      .insert({ ...item, user_id: user.id })
+      .insert({ ...item, user_id: user.id, household_id: householdId })
       .select()
       .single();
     if (insertError) { setError(insertError.message); return null; }

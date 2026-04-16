@@ -10,6 +10,16 @@ export interface ShoppingItem {
   created_at: string;
 }
 
+async function getHouseholdId(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('household_members')
+    .select('household_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single();
+  return data?.household_id ?? null;
+}
+
 export function useShopping() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,11 +31,17 @@ export function useShopping() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError) { setError(authError.message); setLoading(false); return; }
     if (!user) { setLoading(false); return; }
-    const { data, error: fetchError } = await supabase
+
+    const householdId = await getHouseholdId(user.id);
+    const query = supabase
       .from('shopping_list_items')
       .select('*')
-      .eq('user_id', user.id)
       .order('created_at', { ascending: true });
+
+    const { data, error: fetchError } = householdId
+      ? await query.eq('household_id', householdId)
+      : await query.eq('user_id', user.id);
+
     if (fetchError) setError(fetchError.message);
     else setItems(data ?? []);
     setLoading(false);
@@ -37,9 +53,11 @@ export function useShopping() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError) { setError(authError.message); return; }
     if (!user) return;
+
+    const householdId = await getHouseholdId(user.id);
     const { data, error: insertError } = await supabase
       .from('shopping_list_items')
-      .insert({ name, quantity, unit, user_id: user.id })
+      .insert({ name, quantity, unit, user_id: user.id, household_id: householdId })
       .select()
       .single();
     if (insertError) { setError(insertError.message); return; }
@@ -47,7 +65,6 @@ export function useShopping() {
   }, []);
 
   const toggleItem = useCallback(async (id: string) => {
-    // Read current checked state from functional updater to avoid stale closure
     let currentChecked: boolean | undefined;
     setItems((prev) => {
       currentChecked = prev.find((i) => i.id === id)?.checked;
