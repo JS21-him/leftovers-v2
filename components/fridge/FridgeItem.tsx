@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import type { FridgeItem as FridgeItemType } from '@/hooks/useFridge';
 
@@ -24,6 +24,17 @@ function expiryColor(days: number): string {
 export function FridgeItem({ item, onDelete }: Props) {
   const days = item.expiry_date ? daysUntil(item.expiry_date) : null;
 
+  function handleDelete() {
+    Alert.alert(
+      'Remove item',
+      `Remove ${item.name} from your fridge?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => onDelete(item.id) },
+      ]
+    );
+  }
+
   return (
     <View style={styles.row}>
       <View style={styles.info}>
@@ -38,7 +49,7 @@ export function FridgeItem({ item, onDelete }: Props) {
         </Text>
       )}
       <TouchableOpacity
-        onPress={() => onDelete(item.id)}
+        onPress={handleDelete}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={styles.delete}
       >
