@@ -103,15 +103,14 @@ export function useFridge() {
     if (authError) { setError(authError.message); return null; }
     if (!user) return null;
 
-    const hid = await getHouseholdId(user.id);
+    const hid = householdIdRef.current;
     const { data, error: insertError } = await supabase
       .from('fridge_items')
       .insert({ ...item, user_id: user.id, household_id: hid })
       .select()
       .single();
     if (insertError) { setError(insertError.message); return null; }
-    // If no Realtime subscription (no household), update state manually
-    if (!householdIdRef.current) {
+    if (!hid) {
       setItems((prev) => sortByExpiry([...prev, data]));
     }
     return data;

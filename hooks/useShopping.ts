@@ -95,15 +95,14 @@ export function useShopping() {
     if (authError) { setError(authError.message); return; }
     if (!user) return;
 
-    const hid = await getHouseholdId(user.id);
+    const hid = householdIdRef.current;
     const { data, error: insertError } = await supabase
       .from('shopping_list_items')
       .insert({ name, quantity, unit, user_id: user.id, household_id: hid })
       .select()
       .single();
     if (insertError) { setError(insertError.message); return; }
-    // If no Realtime subscription (no household), update state manually
-    if (!householdIdRef.current && data) {
+    if (!hid && data) {
       setItems((prev) => [...prev, data]);
     }
   }, []);
