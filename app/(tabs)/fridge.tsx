@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, SectionList, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, SectionList, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { Header } from '@/components/ui/Header';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FridgeItem } from '@/components/fridge/FridgeItem';
@@ -31,11 +31,22 @@ export default function FridgeScreen() {
     }
   }, [addItem]);
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title="My Fridge" />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="My Fridge" />
       <ScanButtons onItemsScanned={handleItemsScanned} />
-      {items.length === 0 && !loading ? (
+      {items.length === 0 ? (
         <EmptyState
           icon="🧊"
           title="Your fridge is empty"
@@ -70,6 +81,7 @@ export default function FridgeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 100 },
   sectionLabel: { ...Typography.label, marginTop: Spacing.md, marginBottom: Spacing.sm },
   fab: {
