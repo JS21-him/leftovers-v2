@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuth } from '@/hooks/useAuth';
+import { useNotifications } from '@/hooks/useNotifications';
 import { initializePurchases } from '@/lib/purchases';
 import { Colors } from '@/constants/theme';
 
@@ -9,6 +10,8 @@ export default function RootLayout() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  useNotifications();
 
   useEffect(() => {
     initializePurchases();
