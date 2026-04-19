@@ -18,13 +18,17 @@ export interface NewFridgeItem {
 }
 
 async function getHouseholdId(userId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', userId)
-    .limit(1)
-    .single();
-  return data?.household_id ?? null;
+  try {
+    const { data } = await supabase
+      .from('household_members')
+      .select('household_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    return data?.household_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function useFridge() {
