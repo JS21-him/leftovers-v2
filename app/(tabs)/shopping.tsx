@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, FlatList, StyleSheet, SafeAreaView, TextInput,
+  View, SectionList, StyleSheet, SafeAreaView, TextInput,
   Alert, TouchableOpacity, Text,
 } from 'react-native';
 import { Header } from '@/components/ui/Header';
@@ -14,6 +14,39 @@ import { useFridge } from '@/hooks/useFridge';
 import { buildShoppingList } from '@/lib/claude';
 import { supabase } from '@/lib/supabase';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import type { ShoppingItem as ShoppingItemType } from '@/hooks/useShopping';
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  '🥩 Meat & Fish': ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'shrimp', 'turkey', 'lamb', 'bacon', 'sausage', 'steak', 'mince', 'ground'],
+  '🥦 Produce': ['apple', 'banana', 'orange', 'lemon', 'lime', 'berry', 'berries', 'grape', 'mango', 'tomato', 'lettuce', 'spinach', 'kale', 'broccoli', 'carrot', 'celery', 'cucumber', 'pepper', 'onion', 'garlic', 'potato', 'sweet potato', 'mushroom', 'avocado', 'zucchini', 'corn', 'pea', 'bean', 'herb', 'basil', 'cilantro', 'parsley'],
+  '🥛 Dairy': ['milk', 'cheese', 'butter', 'yogurt', 'cream', 'egg', 'eggs', 'sour cream', 'cottage cheese', 'cheddar', 'mozzarella', 'parmesan'],
+  '🍞 Bakery': ['bread', 'bagel', 'muffin', 'tortilla', 'wrap', 'pita', 'roll', 'bun', 'croissant', 'sourdough'],
+  '🥫 Pantry': ['pasta', 'rice', 'flour', 'sugar', 'salt', 'pepper', 'oil', 'vinegar', 'sauce', 'can', 'canned', 'soup', 'stock', 'broth', 'cereal', 'oat', 'lentil', 'chickpea', 'bean', 'honey', 'jam', 'peanut butter', 'ketchup', 'mustard', 'mayo', 'soy sauce', 'spice'],
+  '🥤 Drinks': ['juice', 'water', 'soda', 'coffee', 'tea', 'wine', 'beer', 'drink', 'smoothie', 'almond milk', 'oat milk'],
+  '❄️ Frozen': ['frozen', 'ice cream', 'gelato', 'sorbet', 'ice'],
+  '🧴 Other': [],
+};
+
+function categorise(name: string): string {
+  const lower = name.toLowerCase();
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (category === '🧴 Other') continue;
+    if (keywords.some((k) => lower.includes(k))) return category;
+  }
+  return '🧴 Other';
+}
+
+function groupByCategory(items: ShoppingItemType[]) {
+  const map: Record<string, ShoppingItemType[]> = {};
+  for (const item of items) {
+    const cat = categorise(item.name);
+    if (!map[cat]) map[cat] = [];
+    map[cat].push(item);
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([title, data]) => ({ title, data }));
+}
 
 export default function ShoppingScreen() {
   const { items, addItem, toggleItem, deleteItem, clearChecked } = useShopping();
@@ -61,6 +94,8 @@ export default function ShoppingScreen() {
   }, [fridgeItems, addItem]);
 
   const uncheckedNames = items.filter((i) => !i.checked).map((i) => i.name);
+  const sections = groupByCategory(items);
+  const hasChecked = items.some((i) => i.checked);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -97,15 +132,18 @@ export default function ShoppingScreen() {
           message="Add items manually or let AI build your weekly list."
         />
       ) : (
-        <FlatList
-          data={items}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionLabel}>{section.title}</Text>
+          )}
           renderItem={({ item }) => (
             <ShoppingItem item={item} onToggle={toggleItem} onDelete={deleteItem} />
           )}
           contentContainerStyle={styles.list}
           ListFooterComponent={
-            items.some((i) => i.checked) ? (
+            hasChecked ? (
               <Button
                 label="Clear checked items"
                 onPress={clearChecked}
@@ -144,6 +182,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addBtnText: { color: '#fff', fontWeight: '700' },
-  list: { paddingHorizontal: Spacing.md, paddingBottom: 20 },
+  list: { paddingHorizontal: Spacing.md, paddingBottom: 80 },
+  sectionLabel: { ...Typography.label, marginTop: Spacing.md, marginBottom: Spacing.xs },
   clearBtn: { marginTop: Spacing.sm },
 });
