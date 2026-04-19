@@ -31,10 +31,19 @@ async function getHouseholdId(userId: string): Promise<string | null> {
   }
 }
 
+function sortByExpiry(items: FridgeItem[]): FridgeItem[] {
+  return [...items].sort((a, b) => {
+    if (!a.expiry_date) return 1;
+    if (!b.expiry_date) return -1;
+    return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+  });
+}
+
 export function useFridge() {
   const [items, setItems] = useState<FridgeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [householdId, setHouseholdId] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -43,14 +52,16 @@ export function useFridge() {
     if (authError) { setError(authError.message); setLoading(false); return; }
     if (!user) { setLoading(false); return; }
 
-    const householdId = await getHouseholdId(user.id);
+    const hid = await getHouseholdId(user.id);
+    setHouseholdId(hid);
+
     const query = supabase
       .from('fridge_items')
       .select('*')
       .order('expiry_date', { ascending: true, nullsFirst: false });
 
-    const { data, error: fetchError } = householdId
-      ? await query.eq('household_id', householdId)
+    const { data, error: fetchError } = hid
+      ? await query.eq('household_id', hid)
       : await query.eq('user_id', user.id);
 
     if (fetchError) setError(fetchError.message);
@@ -60,19 +71,44 @@ export function useFridge() {
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
+  // Realtime subscription - fires after householdId is resolved
+  useEffect(() => {
+    if (!householdId) return;
+
+    const channel = supabase
+      .channel(`fridge:${householdId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'fridge_items', filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          setItems((prev) => sortByExpiry([...prev, payload.new as FridgeItem]));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'fridge_items', filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          setItems((prev) => prev.filter((i) => i.id !== (payload.old as { id: string }).id));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [householdId]);
+
   const addItem = useCallback(async (item: NewFridgeItem): Promise<FridgeItem | null> => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError) { setError(authError.message); return null; }
     if (!user) return null;
 
-    const householdId = await getHouseholdId(user.id);
+    const hid = await getHouseholdId(user.id);
     const { data, error: insertError } = await supabase
       .from('fridge_items')
-      .insert({ ...item, user_id: user.id, household_id: householdId })
+      .insert({ ...item, user_id: user.id, household_id: hid })
       .select()
       .single();
     if (insertError) { setError(insertError.message); return null; }
-    setItems((prev) => [...prev, data]);
+    // Realtime handles adding to state
     return data;
   }, []);
 
@@ -82,7 +118,7 @@ export function useFridge() {
     if (!user) return;
     const { error: deleteError } = await supabase.from('fridge_items').delete().eq('id', id);
     if (deleteError) { setError(deleteError.message); return; }
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    // Realtime handles removing from state
   }, []);
 
   function getExpiringSoon(withinDays = 5): FridgeItem[] {
