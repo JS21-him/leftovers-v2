@@ -18,23 +18,26 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
-
-    if (mode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) Alert.alert('Error', error.message);
-    } else {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else if (data.user && params.dietary) {
-        await supabase.from('profiles').update({
-          dietary_preferences: JSON.parse(params.dietary),
-          household_size: parseInt(params.householdSize ?? '2', 10),
-        }).eq('id', data.user.id);
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) Alert.alert('Error', error.message);
+      } else {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          Alert.alert('Error', error.message);
+        } else if (data.user && params.dietary) {
+          await supabase.from('profiles').update({
+            dietary_preferences: JSON.parse(params.dietary),
+            household_size: parseInt(params.householdSize ?? '2', 10),
+          }).eq('id', data.user.id);
+        }
       }
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
