@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, ScrollView, Share } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView, Share, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,7 @@ import { useHousehold } from '@/hooks/useHousehold';
 export default function SettingsScreen() {
   const router = useRouter();
   const { isPremium, refetch } = useSubscription();
-  const { household, members, joinByCode, refreshInviteCode } = useHousehold();
+  const { household, members, loading: householdLoading, joinByCode, refreshInviteCode } = useHousehold();
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
 
@@ -86,7 +86,9 @@ export default function SettingsScreen() {
 
         {/* Household */}
         <Text style={styles.sectionLabel}>HOUSEHOLD</Text>
-        {household ? (
+        {householdLoading ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginBottom: Spacing.md }} />
+        ) : household ? (
           <>
             <View style={styles.codeBox}>
               <Text style={styles.codeLabel}>Your invite code</Text>
@@ -105,6 +107,7 @@ export default function SettingsScreen() {
             ))}
           </>
         ) : null}
+
 
         <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>JOIN A HOUSEHOLD</Text>
         <Text style={styles.joinHint}>Have a code from a family member? Enter it below.</Text>
