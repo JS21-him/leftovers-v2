@@ -10,6 +10,8 @@ interface Props {
 
 export function RecipeCard({ recipe, onPress }: Props) {
   const itemsYouHave = recipe.ingredients.filter((i) => i.have).length;
+  const missing = recipe.ingredients.length - itemsYouHave;
+  const oneAway = missing === 1;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -17,9 +19,16 @@ export function RecipeCard({ recipe, onPress }: Props) {
         <Text style={styles.emoji}>{recipe.emoji}</Text>
       </View>
       <View style={styles.info}>
-        <Text style={styles.title}>{recipe.title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={1}>{recipe.title}</Text>
+          {oneAway && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>1 away</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.meta}>
-          Uses {itemsYouHave}/{recipe.ingredients.length} items you have
+          {missing === 0 ? 'You have everything!' : `Missing ${missing} ingredient${missing > 1 ? 's' : ''}`}
         </Text>
         <View style={styles.tags}>
           <Text style={styles.tag}>⏱ {recipe.cook_time_minutes} min</Text>
@@ -46,7 +55,15 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 32 },
   info: { flex: 1, padding: Spacing.md },
-  title: { ...Typography.subheading, marginBottom: 2 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 2 },
+  title: { ...Typography.subheading, flex: 1 },
+  badge: {
+    backgroundColor: Colors.success,
+    borderRadius: Radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  badgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
   meta: { ...Typography.caption, marginBottom: Spacing.xs },
   tags: { flexDirection: 'row', gap: Spacing.sm },
   tag: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
