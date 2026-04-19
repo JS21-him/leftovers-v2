@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export interface FridgeItem {
@@ -44,6 +44,7 @@ export function useFridge() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [householdId, setHouseholdId] = useState<string | null>(null);
+  const householdIdRef = useRef<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -54,6 +55,7 @@ export function useFridge() {
 
     const hid = await getHouseholdId(user.id);
     setHouseholdId(hid);
+    householdIdRef.current = hid;
 
     const query = supabase
       .from('fridge_items')
@@ -108,7 +110,10 @@ export function useFridge() {
       .select()
       .single();
     if (insertError) { setError(insertError.message); return null; }
-    // Realtime handles adding to state
+    // If no Realtime subscription (no household), update state manually
+    if (!householdIdRef.current) {
+      setItems((prev) => sortByExpiry([...prev, data]));
+    }
     return data;
   }, []);
 
@@ -118,7 +123,10 @@ export function useFridge() {
     if (!user) return;
     const { error: deleteError } = await supabase.from('fridge_items').delete().eq('id', id);
     if (deleteError) { setError(deleteError.message); return; }
-    // Realtime handles removing from state
+    // If no Realtime subscription (no household), update state manually
+    if (!householdIdRef.current) {
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    }
   }, []);
 
   function getExpiringSoon(withinDays = 5): FridgeItem[] {
