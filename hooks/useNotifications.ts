@@ -14,11 +14,13 @@ export function useNotifications() {
         if (status !== 'granted') return;
 
         const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+        if (!projectId) return;
         const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!token) return;
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (userError || !data?.user) return;
+        const { user } = data;
 
         await supabase.from('profiles').upsert({ id: user.id, push_token: token }, { onConflict: 'id' });
       } catch {
