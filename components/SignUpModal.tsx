@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors, Spacing, Radius, Typography } from '@/constants/theme';
@@ -15,20 +15,38 @@ interface Props {
 export function SignUpModal({ visible, onSkip, onSuccess }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
   const passwordRef = useRef<TextInput>(null);
 
+  useEffect(() => {
+    if (!visible) {
+      setEmail('');
+      setPassword('');
+      setEmailError('');
+      setPasswordError('');
+      setLoading(false);
+    }
+  }, [visible]);
+
   async function handleSubmit() {
+    setEmailError('');
     setPasswordError('');
+
+    if (!email) {
+      setEmailError('Please enter your email.');
+      return;
+    }
+    if (!email.includes('@')) {
+      setEmailError('Please enter a valid email.');
+      return;
+    }
     if (password.length < 6) {
       setPasswordError('Must be at least 6 characters');
       return;
     }
-    if (!email) {
-      Alert.alert('Error', 'Please enter your email.');
-      return;
-    }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ email, password });
@@ -46,10 +64,7 @@ export function SignUpModal({ visible, onSkip, onSuccess }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <KeyboardAvoidingView style={styles.overlay} behavior="padding">
         <View style={styles.sheet}>
           <Text style={styles.headline}>Your fridge is ready</Text>
           <Text style={styles.sub}>
@@ -61,7 +76,7 @@ export function SignUpModal({ visible, onSkip, onSuccess }: Props) {
             placeholder="Email"
             placeholderTextColor={Colors.textMuted}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(t) => { setEmail(t); setEmailError(''); }}
             autoCapitalize="none"
             keyboardType="email-address"
             autoCorrect={false}
@@ -69,6 +84,10 @@ export function SignUpModal({ visible, onSkip, onSuccess }: Props) {
             onSubmitEditing={() => passwordRef.current?.focus()}
             blurOnSubmit={false}
           />
+          {emailError ? (
+            <Text style={styles.fieldError}>{emailError}</Text>
+          ) : null}
+
           <TextInput
             ref={passwordRef}
             style={styles.input}

@@ -54,4 +54,29 @@ describe('SignUpModal', () => {
       expect(mockUpdateUser).not.toHaveBeenCalled();
     });
   });
+
+  it('shows error if email is empty', async () => {
+    const { getByPlaceholderText, getByText } = render(
+      <SignUpModal visible onSkip={jest.fn()} onSuccess={jest.fn()} />
+    );
+    fireEvent.changeText(getByPlaceholderText('Password'), 'secret123');
+    fireEvent.press(getByText('Create Free Account'));
+    await waitFor(() => {
+      expect(getByText('Please enter your email.')).toBeTruthy();
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+  });
+
+  it('shows error if email has no @', async () => {
+    const { getByPlaceholderText, getByText } = render(
+      <SignUpModal visible onSkip={jest.fn()} onSuccess={jest.fn()} />
+    );
+    fireEvent.changeText(getByPlaceholderText('Email'), 'notanemail');
+    fireEvent.changeText(getByPlaceholderText('Password'), 'secret123');
+    fireEvent.press(getByText('Create Free Account'));
+    await waitFor(() => {
+      expect(getByText('Please enter a valid email.')).toBeTruthy();
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+  });
 });
