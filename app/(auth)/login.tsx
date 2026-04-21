@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Logo } from '@/components/Logo';
 
 export default function LoginScreen() {
   const params = useLocalSearchParams<{ dietary?: string; householdSize?: string }>();
@@ -52,7 +53,9 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.emoji}>🧊</Text>
+        <View style={styles.logoWrap}>
+          <Logo size="md" />
+        </View>
         <Text style={styles.title}>{mode === 'login' ? 'Welcome back' : 'Create account'}</Text>
         <TextInput
           style={styles.input}
@@ -98,7 +101,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   outer: { flex: 1, backgroundColor: Colors.background },
   container: { flexGrow: 1, padding: Spacing.xl, justifyContent: 'center' },
-  emoji: { fontSize: 48, textAlign: 'center', marginBottom: Spacing.md },
+  logoWrap: { alignItems: 'center', marginBottom: Spacing.md },
   title: { ...Typography.heading, fontSize: 24, textAlign: 'center', marginBottom: Spacing.xl },
   input: {
     backgroundColor: Colors.surface,
