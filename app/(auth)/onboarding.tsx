@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/Logo';
@@ -13,8 +13,14 @@ export default function OnboardingScreen() {
   async function handleScan() {
     setLoading(true);
     try {
-      await supabase.auth.signInAnonymously();
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
       router.replace('/scan-preview');
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -25,7 +31,7 @@ export default function OnboardingScreen() {
       <Logo size="lg" showTagline />
       <Text style={styles.value}>See what you can cook with what you have.</Text>
       <Button
-        label={loading ? 'Getting ready...' : 'Scan My Fridge'}
+        label="Scan My Fridge"
         onPress={handleScan}
         loading={loading}
         style={styles.cta}

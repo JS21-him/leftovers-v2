@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import OnboardingScreen from '@/app/(auth)/onboarding';
 
 const mockReplace = jest.fn();
@@ -51,5 +52,17 @@ describe('OnboardingScreen', () => {
       expect(mockSignInAnonymously).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/scan-preview');
     });
+  });
+
+  it('shows alert if signInAnonymously returns error', async () => {
+    mockSignInAnonymously.mockResolvedValueOnce({ data: null, error: { message: 'Network error' } });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const { getByText } = render(<OnboardingScreen />);
+    fireEvent.press(getByText('Scan My Fridge'));
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('Error', 'Network error');
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+    alertSpy.mockRestore();
   });
 });
