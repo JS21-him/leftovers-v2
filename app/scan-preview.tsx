@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
@@ -18,16 +18,23 @@ export default function ScanPreviewScreen() {
   const [scanned, setScanned] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
+  // Fetch recipes after items state has updated (avoids stale closure on fetchRecipes)
+  useEffect(() => {
+    if (!scanned || items.length === 0) return;
+    fetchRecipes().then(() => {
+      setShowModal(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanned]);
+
   const handleItemsScanned = useCallback(
     async (newItems: NewFridgeItem[]) => {
       for (const item of newItems) {
         try { await addItem(item); } catch { /* continue */ }
       }
       setScanned(true);
-      await fetchRecipes();
-      setShowModal(true);
     },
-    [addItem, fetchRecipes],
+    [addItem],
   );
 
   function handleSuccess() {
@@ -59,7 +66,7 @@ export default function ScanPreviewScreen() {
           <>
             <Text style={styles.recipesHeading}>Here's what you can make</Text>
             {recipes.slice(0, 3).map((recipe, i) => (
-              <RecipeCard key={i} recipe={recipe} onPress={() => {}} />
+              <RecipeCard key={recipe.title ?? i} recipe={recipe} onPress={() => {}} />
             ))}
           </>
         )}
