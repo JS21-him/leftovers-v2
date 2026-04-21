@@ -21,9 +21,14 @@ export default function ScanPreviewScreen() {
   // Fetch recipes after items state has updated (avoids stale closure on fetchRecipes)
   useEffect(() => {
     if (!scanned || items.length === 0) return;
-    fetchRecipes().then(() => {
-      setShowModal(true);
-    });
+    fetchRecipes()
+      .then(() => setShowModal(true))
+      .catch(() => setShowModal(true));
+  // Intentionally depends only on `scanned`. When scanned flips to true, React
+  // has already committed the items state update (anonymous users have no
+  // household, so addItem calls setItems directly and both updates batch into
+  // the same render). Including fetchRecipes or items in deps would recreate
+  // the stale-closure bug this effect was introduced to fix.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanned]);
 
