@@ -34,7 +34,7 @@ export default function FridgeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Header title="My Fridge" />
+        <Header showLogo />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -44,7 +44,7 @@ export default function FridgeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="My Fridge" />
+      <Header showLogo />
       <ScanButtons onItemsScanned={handleItemsScanned} />
       {items.length === 0 ? (
         <EmptyState
