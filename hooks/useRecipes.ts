@@ -22,7 +22,7 @@ export function useRecipes(fridgeItems: FridgeItem[], isPremium: boolean) {
         .from('profiles')
         .select('dietary_preferences')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       const preferences: string[] = profile?.dietary_preferences ?? [];
       const itemNames = fridgeItems.map((i) => `${i.name}${i.unit ? ` (${i.quantity} ${i.unit})` : ''}`);
       const result = await generateRecipes(itemNames, preferences);

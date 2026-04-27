@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Button } from '@/components/ui/Button';
+import { PremiumGate } from '@/components/ui/PremiumGate';
 import { scanFridge, scanReceipt } from '@/lib/claude';
 import { Spacing } from '@/constants/theme';
 import type { NewFridgeItem } from '@/hooks/useFridge';
@@ -55,17 +56,21 @@ export function ScanButtons({ onItemsScanned }: Props) {
 
   return (
     <View style={styles.container}>
-      <Button
-        label={loadingFridge ? 'Scanning...' : '📷 Scan Fridge with AI'}
-        onPress={handleScanFridge}
-        loading={loadingFridge}
-      />
-      <Button
-        label={loadingReceipt ? 'Scanning...' : '🧾 Scan Receipt'}
-        onPress={handleScanReceipt}
-        loading={loadingReceipt}
-        variant="secondary"
-      />
+      <PremiumGate feature="AI fridge scanning">
+        <Button
+          label={loadingFridge ? 'Scanning...' : '📷 Scan Fridge with AI'}
+          onPress={handleScanFridge}
+          loading={loadingFridge}
+        />
+      </PremiumGate>
+      <PremiumGate feature="receipt scanning">
+        <Button
+          label={loadingReceipt ? 'Scanning...' : '🧾 Scan Receipt'}
+          onPress={handleScanReceipt}
+          loading={loadingReceipt}
+          variant="secondary"
+        />
+      </PremiumGate>
     </View>
   );
 }

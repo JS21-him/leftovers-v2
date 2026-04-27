@@ -72,7 +72,7 @@ export default function ShoppingScreen() {
         .from('profiles')
         .select('dietary_preferences, household_size')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       const itemNames = fridgeItems.map((i) => i.name);
       const newItems = await buildShoppingList(
         itemNames,

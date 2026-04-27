@@ -29,10 +29,11 @@ export default function LoginScreen() {
         if (error) {
           Alert.alert('Error', error.message);
         } else if (data.user && params.dietary) {
-          await supabase.from('profiles').update({
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
             dietary_preferences: JSON.parse(params.dietary),
             household_size: parseInt(params.householdSize ?? '2', 10),
-          }).eq('id', data.user.id);
+          });
         }
       }
     } catch (err) {
