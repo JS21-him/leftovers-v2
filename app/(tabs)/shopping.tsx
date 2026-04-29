@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, SectionList, StyleSheet, SafeAreaView, TextInput,
-  Alert, TouchableOpacity, Text,
+  TouchableOpacity, Text,
 } from 'react-native';
 import { Header } from '@/components/ui/Header';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -9,13 +9,17 @@ import { ShoppingItem } from '@/components/shopping/ShoppingItem';
 import { OrderButtons } from '@/components/shopping/OrderButtons';
 import { Button } from '@/components/ui/Button';
 import { PremiumGate } from '@/components/ui/PremiumGate';
+import { ShoppingSkeleton } from '@/components/ui/Skeleton';
 import { useShopping } from '@/hooks/useShopping';
 import { useFridge } from '@/hooks/useFridge';
 import { buildShoppingList } from '@/lib/claude';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
+import { hapticSuccess, hapticLight, hapticError } from '@/lib/haptics';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import type { ShoppingItem as ShoppingItemType } from '@/hooks/useShopping';
 
+// ─── Category helpers ─────────────────────────────────────────────────────────
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   '🥩 Meat & Fish': ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'shrimp', 'turkey', 'lamb', 'bacon', 'sausage', 'steak', 'mince', 'ground'],
   '🥦 Produce': ['apple', 'banana', 'orange', 'lemon', 'lime', 'berry', 'berries', 'grape', 'mango', 'tomato', 'lettuce', 'spinach', 'kale', 'broccoli', 'carrot', 'celery', 'cucumber', 'pepper', 'onion', 'garlic', 'potato', 'sweet potato', 'mushroom', 'avocado', 'zucchini', 'corn', 'pea', 'bean', 'herb', 'basil', 'cilantro', 'parsley'],
@@ -48,24 +52,58 @@ function groupByCategory(items: ShoppingItemType[]) {
     .map(([title, data]) => ({ title, data }));
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ShoppingScreen() {
-  const { items, addItem, toggleItem, deleteItem, clearChecked } = useShopping();
+  const { items, loading, addItem, toggleItem, deleteItem, clearChecked } = useShopping();
   const { items: fridgeItems } = useFridge();
+  const { showToast } = useToast();
   const [newItem, setNewItem] = useState('');
   const [buildingList, setBuildingList] = useState(false);
 
+  const sections = useMemo(() => groupByCategory(items), [items]);
+  const uncheckedNames = useMemo(
+    () => items.filter((i) => !i.checked).map((i) => i.name),
+    [items],
+  );
+  const hasChecked = useMemo(() => items.some((i) => i.checked), [items]);
+
   const handleAddItem = useCallback(async () => {
-    if (!newItem.trim()) return;
-    await addItem(newItem.trim());
-    setNewItem('');
-  }, [newItem, addItem]);
+    const name = newItem.trim();
+    if (!name) return;
+    try {
+      await addItem(name);
+      setNewItem('');
+      hapticSuccess();
+      showToast({ message: `${name} added to list`, type: 'success' });
+    } catch {
+      hapticError();
+      showToast({ message: 'Could not add item', type: 'error' });
+    }
+  }, [newItem, addItem, showToast]);
+
+  const handleToggle = useCallback(async (id: string) => {
+    hapticLight();
+    await toggleItem(id);
+  }, [toggleItem]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    await deleteItem(id);
+    showToast({ message: `${item?.name ?? 'Item'} removed`, type: 'info' });
+  }, [deleteItem, items, showToast]);
+
+  const handleClearChecked = useCallback(async () => {
+    await clearChecked();
+    hapticSuccess();
+    showToast({ message: 'Checked items cleared', type: 'success' });
+  }, [clearChecked, showToast]);
 
   const handleBuildList = useCallback(async () => {
     setBuildingList(true);
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
-        Alert.alert('Error', 'Please sign in to build your shopping list.');
+        showToast({ message: 'Please sign in to build your list', type: 'error' });
         return;
       }
       const { data: profile } = await supabase
@@ -77,25 +115,31 @@ export default function ShoppingScreen() {
       const newItems = await buildShoppingList(
         itemNames,
         profile?.household_size ?? 2,
-        profile?.dietary_preferences ?? []
+        profile?.dietary_preferences ?? [],
       );
       for (const item of newItems) {
         try {
           await addItem(item.name, item.quantity, item.unit);
-        } catch {
-          // continue adding remaining items
-        }
+        } catch { /* continue */ }
       }
+      hapticSuccess();
+      showToast({ message: `${newItems.length} items added to your list`, type: 'success' });
     } catch {
-      Alert.alert('Error', 'Could not build shopping list. Please try again.');
+      hapticError();
+      showToast({ message: 'Could not build shopping list. Please try again.', type: 'error' });
     } finally {
       setBuildingList(false);
     }
-  }, [fridgeItems, addItem]);
+  }, [fridgeItems, addItem, showToast]);
 
-  const uncheckedNames = items.filter((i) => !i.checked).map((i) => i.name);
-  const sections = groupByCategory(items);
-  const hasChecked = items.some((i) => i.checked);
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title="Shopping" />
+        <ShoppingSkeleton />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -120,7 +164,11 @@ export default function ShoppingScreen() {
           onSubmitEditing={handleAddItem}
           returnKeyType="done"
         />
-        <TouchableOpacity style={styles.addBtn} onPress={handleAddItem}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={handleAddItem}
+          activeOpacity={0.8}
+        >
           <Text style={styles.addBtnText}>Add</Text>
         </TouchableOpacity>
       </View>
@@ -128,8 +176,8 @@ export default function ShoppingScreen() {
       {items.length === 0 ? (
         <EmptyState
           icon="🛒"
-          title="List is empty"
-          message="Add items manually or let AI build your weekly list."
+          title="Your list is clear!"
+          message="Add items manually or let AI build your weekly list based on your fridge."
         />
       ) : (
         <SectionList
@@ -138,15 +186,21 @@ export default function ShoppingScreen() {
           renderSectionHeader={({ section }) => (
             <Text style={styles.sectionLabel}>{section.title}</Text>
           )}
-          renderItem={({ item }) => (
-            <ShoppingItem item={item} onToggle={toggleItem} onDelete={deleteItem} />
+          renderItem={({ item, index }) => (
+            <ShoppingItem
+              item={item}
+              onToggle={handleToggle}
+              onDelete={handleDelete}
+              index={index}
+            />
           )}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListFooterComponent={
             hasChecked ? (
               <Button
                 label="Clear checked items"
-                onPress={clearChecked}
+                onPress={handleClearChecked}
                 variant="ghost"
                 style={styles.clearBtn}
               />
@@ -163,26 +217,33 @@ export default function ShoppingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   buildButton: { margin: Spacing.md, marginBottom: 0 },
-  addRow: { flexDirection: 'row', padding: Spacing.md, gap: Spacing.sm },
+  addRow: {
+    flexDirection: 'row',
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
   input: {
     flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     padding: Spacing.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     ...Typography.body,
     color: Colors.textPrimary,
+    fontSize: 15,
+    minHeight: 48,
   },
   addBtn: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnText: { color: '#fff', fontWeight: '700' },
-  list: { paddingHorizontal: Spacing.md, paddingBottom: 80 },
-  sectionLabel: { ...Typography.label, marginTop: Spacing.md, marginBottom: Spacing.xs },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  list: { paddingHorizontal: Spacing.md, paddingBottom: 100 },
+  sectionLabel: { ...Typography.label, marginTop: Spacing.md, marginBottom: Spacing.sm },
   clearBtn: { marginTop: Spacing.sm },
 });

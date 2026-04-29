@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { initializePurchases } from '@/lib/purchases';
+import { ToastProvider } from '@/components/ui/Toast';
 import { Colors } from '@/constants/theme';
 
 export default function RootLayout() {
@@ -29,13 +31,30 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="scan-preview" />
-        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="recipe/[id]" options={{ presentation: 'card' }} />
-      </Stack>
+      <SafeAreaProvider>
+        <ToastProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.background },
+              // Native slide animation for all stack screens
+              animation: 'slide_from_right',
+            }}
+          >
+            <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+            <Stack.Screen name="scan-preview" />
+            <Stack.Screen
+              name="settings"
+              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="recipe/[id]"
+              options={{ presentation: 'card', animation: 'slide_from_right' }}
+            />
+          </Stack>
+        </ToastProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

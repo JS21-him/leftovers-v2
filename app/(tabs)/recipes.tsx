@@ -1,15 +1,15 @@
-import React, { useEffect, useCallback } from 'react';
-import {
-  View, FlatList, StyleSheet, SafeAreaView, Text, TouchableOpacity, ActivityIndicator,
-} from 'react-native';
+import React, { useEffect, useCallback, useMemo } from 'react';
+import { View, FlatList, StyleSheet, SafeAreaView, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Header } from '@/components/ui/Header';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import { AISuggestionBanner } from '@/components/recipes/AISuggestionBanner';
+import { RecipesSkeleton } from '@/components/ui/Skeleton';
 import { useFridge } from '@/hooks/useFridge';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import type { Recipe } from '@/lib/claude';
 
@@ -18,37 +18,44 @@ export default function RecipesScreen() {
   const { items: fridgeItems, getExpiringSoon } = useFridge();
   const { isPremium } = useSubscription();
   const { recipes, loading, error, fetchRecipes } = useRecipes(fridgeItems, isPremium);
+  const { showToast } = useToast();
 
   useEffect(() => { fetchRecipes(); }, [fetchRecipes]);
 
-  const expiringSoon = getExpiringSoon(5);
-  const suggestion = expiringSoon.length > 0 && recipes.length > 0 ? recipes[0] : null;
+  const expiringSoon = useMemo(() => getExpiringSoon(5), [fridgeItems]);
+  const suggestion = useMemo(
+    () => (expiringSoon.length > 0 && recipes.length > 0 ? recipes[0] : null),
+    [expiringSoon, recipes],
+  );
+  const remainingRecipes = useMemo(
+    () => (suggestion ? recipes.slice(1) : recipes),
+    [suggestion, recipes],
+  );
 
-  function openRecipe(recipe: Recipe, index: number) {
+  const openRecipe = useCallback((recipe: Recipe, index: number) => {
     router.push({
       pathname: '/recipe/[id]',
       params: { id: String(index), recipe: JSON.stringify(recipe) },
     });
-  }
+  }, [router]);
 
-  const handleRefresh = useCallback(() => {
-    fetchRecipes();
-  }, [fetchRecipes]);
+  const handleRefresh = useCallback(async () => {
+    try {
+      await fetchRecipes();
+    } catch {
+      showToast({ message: 'Could not load recipes. Please try again.', type: 'error' });
+    }
+  }, [fetchRecipes, showToast]);
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <Header title="Recipes" />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Finding recipes for your fridge...</Text>
-        </View>
+        <RecipesSkeleton />
       </SafeAreaView>
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
@@ -64,7 +71,6 @@ export default function RecipesScreen() {
     );
   }
 
-  // ── No fridge items ───────────────────────────────────────────────────────
   if (fridgeItems.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
@@ -72,7 +78,7 @@ export default function RecipesScreen() {
         <EmptyState
           icon="🍳"
           title="Your fridge is empty"
-          message="Add items to your fridge and we'll suggest recipes tailored to what you have."
+          message="Add items to your fridge to get recipe suggestions tailored to what you have."
           actionLabel="Go to Fridge"
           onAction={() => router.push('/(tabs)/fridge')}
         />
@@ -80,7 +86,6 @@ export default function RecipesScreen() {
     );
   }
 
-  // ── No recipes generated yet ──────────────────────────────────────────────
   if (recipes.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
@@ -88,7 +93,7 @@ export default function RecipesScreen() {
         <EmptyState
           icon="🍳"
           title="No recipes yet"
-          message="Tap the button below to generate recipes from your fridge."
+          message="Tap below to generate recipes from your fridge."
           actionLabel="Generate Recipes"
           onAction={handleRefresh}
         />
@@ -96,14 +101,13 @@ export default function RecipesScreen() {
     );
   }
 
-  // ── Recipe list ───────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Recipes" />
-
       <FlatList
-        data={suggestion ? recipes.slice(1) : recipes}
+        data={remainingRecipes}
         keyExtractor={(item) => item.title}
+        showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
             {suggestion && (
@@ -114,9 +118,9 @@ export default function RecipesScreen() {
             )}
             <View style={styles.refreshRow}>
               <Text style={styles.countLabel}>
-                {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} from your fridge
+                {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} for your fridge
               </Text>
-              <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
+              <TouchableOpacity onPress={handleRefresh} activeOpacity={0.7}>
                 <Text style={styles.refreshText}>Refresh ↺</Text>
               </TouchableOpacity>
             </View>
@@ -126,6 +130,7 @@ export default function RecipesScreen() {
           <RecipeCard
             recipe={item}
             onPress={() => openRecipe(item, suggestion ? index + 1 : index)}
+            index={index}
           />
         )}
         contentContainerStyle={styles.list}
@@ -137,8 +142,6 @@ export default function RecipesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   list: { padding: Spacing.md },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  loadingText: { ...Typography.body, color: Colors.textMuted, textAlign: 'center' },
   refreshRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -147,6 +150,5 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   countLabel: { ...Typography.caption, color: Colors.textMuted },
-  refreshBtn: { padding: 4 },
   refreshText: { ...Typography.caption, color: Colors.primary, fontWeight: '700' },
 });
