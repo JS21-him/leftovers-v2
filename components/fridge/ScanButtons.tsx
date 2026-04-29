@@ -9,6 +9,8 @@ import type { NewFridgeItem } from '@/hooks/useFridge';
 
 interface Props {
   onItemsScanned: (items: NewFridgeItem[]) => Promise<void>;
+  /** When true, bypasses the PremiumGate (e.g. during onboarding scan-preview). */
+  skipGate?: boolean;
 }
 
 async function pickAndEncodeImage(): Promise<string | null> {
@@ -22,7 +24,7 @@ async function pickAndEncodeImage(): Promise<string | null> {
   return result.assets[0].base64;
 }
 
-export function ScanButtons({ onItemsScanned }: Props) {
+export function ScanButtons({ onItemsScanned, skipGate = false }: Props) {
   const [loadingFridge, setLoadingFridge] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
 
@@ -54,23 +56,35 @@ export function ScanButtons({ onItemsScanned }: Props) {
     }
   }
 
+  const fridgeButton = (
+    <Button
+      label={loadingFridge ? 'Scanning...' : '📷 Scan Fridge with AI'}
+      onPress={handleScanFridge}
+      loading={loadingFridge}
+    />
+  );
+
+  const receiptButton = (
+    <Button
+      label={loadingReceipt ? 'Scanning...' : '🧾 Scan Receipt'}
+      onPress={handleScanReceipt}
+      loading={loadingReceipt}
+      variant="secondary"
+    />
+  );
+
   return (
     <View style={styles.container}>
-      <PremiumGate feature="AI fridge scanning">
-        <Button
-          label={loadingFridge ? 'Scanning...' : '📷 Scan Fridge with AI'}
-          onPress={handleScanFridge}
-          loading={loadingFridge}
-        />
-      </PremiumGate>
-      <PremiumGate feature="receipt scanning">
-        <Button
-          label={loadingReceipt ? 'Scanning...' : '🧾 Scan Receipt'}
-          onPress={handleScanReceipt}
-          loading={loadingReceipt}
-          variant="secondary"
-        />
-      </PremiumGate>
+      {skipGate ? (
+        fridgeButton
+      ) : (
+        <PremiumGate feature="AI fridge scanning">{fridgeButton}</PremiumGate>
+      )}
+      {skipGate ? (
+        receiptButton
+      ) : (
+        <PremiumGate feature="receipt scanning">{receiptButton}</PremiumGate>
+      )}
     </View>
   );
 }

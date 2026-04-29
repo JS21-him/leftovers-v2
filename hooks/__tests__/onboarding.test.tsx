@@ -21,20 +21,35 @@ jest.mock('react-native-svg', () => {
   };
 });
 
-const mockSignInAnonymously = jest.fn().mockResolvedValue({ data: { session: {} }, error: null });
+const mockUpsert = jest.fn().mockResolvedValue({ error: null });
+const mockSignInAnonymously = jest.fn().mockResolvedValue({
+  data: { user: { id: 'anon-123' }, session: {} },
+  error: null,
+});
 jest.mock('@/lib/supabase', () => ({
-  supabase: { auth: { signInAnonymously: (...a: any[]) => mockSignInAnonymously(...a) } },
+  supabase: {
+    auth: { signInAnonymously: (...a: any[]) => mockSignInAnonymously(...a) },
+    from: () => ({ upsert: (...a: any[]) => mockUpsert(...a) }),
+  },
 }));
+
+// Helper: advance the onboarding to the scan step (step index 2)
+async function advanceToScanStep(getByText: (t: string) => any, fireEvent: any) {
+  // Step 0 → 1
+  fireEvent.press(getByText('Get Started'));
+  // Step 1 → 2
+  fireEvent.press(getByText('Continue'));
+}
 
 describe('OnboardingScreen', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('renders Scan My Fridge button', () => {
+  it('renders Get Started on the welcome step', () => {
     const { getByText } = render(<OnboardingScreen />);
-    expect(getByText('Scan My Fridge')).toBeTruthy();
+    expect(getByText('Get Started')).toBeTruthy();
   });
 
-  it('renders login link', () => {
+  it('renders login link on welcome step', () => {
     const { getByText } = render(<OnboardingScreen />);
     expect(getByText('I already have an account')).toBeTruthy();
   });
@@ -45,8 +60,21 @@ describe('OnboardingScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
   });
 
+  it('Get Started advances to preferences step', () => {
+    const { getByText } = render(<OnboardingScreen />);
+    fireEvent.press(getByText('Get Started'));
+    expect(getByText('Continue')).toBeTruthy();
+  });
+
+  it('Continue advances to scan step showing Scan My Fridge button', async () => {
+    const { getByText } = render(<OnboardingScreen />);
+    await advanceToScanStep(getByText, fireEvent);
+    expect(getByText('Scan My Fridge')).toBeTruthy();
+  });
+
   it('Scan My Fridge calls signInAnonymously and navigates to scan-preview', async () => {
     const { getByText } = render(<OnboardingScreen />);
+    await advanceToScanStep(getByText, fireEvent);
     fireEvent.press(getByText('Scan My Fridge'));
     await waitFor(() => {
       expect(mockSignInAnonymously).toHaveBeenCalled();
@@ -55,9 +83,10 @@ describe('OnboardingScreen', () => {
   });
 
   it('shows alert if signInAnonymously returns error', async () => {
-    mockSignInAnonymously.mockResolvedValueOnce({ data: null, error: { message: 'Network error' } });
+    mockSignInAnonymously.mockResolvedValueOnce({ data: { user: null }, error: { message: 'Network error' } });
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { getByText } = render(<OnboardingScreen />);
+    await advanceToScanStep(getByText, fireEvent);
     fireEvent.press(getByText('Scan My Fridge'));
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith('Error', 'Network error');

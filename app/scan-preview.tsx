@@ -25,10 +25,8 @@ export default function ScanPreviewScreen() {
       .then(() => setShowModal(true))
       .catch(() => setShowModal(true));
   // Intentionally depends only on `scanned`. When scanned flips to true, React
-  // has already committed the items state update (anonymous users have no
-  // household, so addItem calls setItems directly and both updates batch into
-  // the same render). Including fetchRecipes or items in deps would recreate
-  // the stale-closure bug this effect was introduced to fix.
+  // has already committed the items state update. Including fetchRecipes or items
+  // in deps would recreate the stale-closure bug this effect was introduced to fix.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanned]);
 
@@ -58,7 +56,8 @@ export default function ScanPreviewScreen() {
         <Text style={styles.heading}>Scan your fridge</Text>
         <Text style={styles.sub}>Point your camera at your fridge or a receipt.</Text>
 
-        <ScanButtons onItemsScanned={handleItemsScanned} />
+        {/* skipGate bypasses PremiumGate — anonymous users must be able to scan here */}
+        <ScanButtons onItemsScanned={handleItemsScanned} skipGate />
 
         {scanned && recipesLoading && (
           <View style={styles.center}>

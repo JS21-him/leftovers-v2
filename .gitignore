@@ -43,3 +43,4 @@ yarn-error.*
 # superpowers and local env
 .superpowers/
 .env.local
+.superpowers/
