@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start --clear",
-    "android": "expo start --android --clear",
-    "ios": "expo start --ios --clear",
+    "start": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first expo start --clear",
+    "android": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first expo start --android --clear",
+    "ios": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first expo start --ios --clear",
     "web": "expo start --web",
     "test": "jest --watchAll=false",
     "test:watch": "jest --watchAll"
@@ -63,6 +63,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
     "babel-plugin-module-resolver": "^5.0.3",
+    "cross-env": "^10.1.0",
     "jest": "^30.3.0",
     "jest-expo": "~54.0.0",
     "react-test-renderer": "19.1.0",
