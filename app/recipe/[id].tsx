@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { Header } from '@/components/ui/Header';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 import { useShopping } from '@/hooks/useShopping';
+import { hapticSuccess, hapticError } from '@/lib/haptics';
 import type { Recipe } from '@/lib/claude';
 
 export default function RecipeDetailScreen() {
   const { recipe: recipeJson } = useLocalSearchParams<{ recipe: string }>();
   const router = useRouter();
   const { addItem } = useShopping();
+  const { showToast } = useToast();
   const [addingToCart, setAddingToCart] = useState(false);
 
   let recipe: Recipe | null = null;
@@ -40,16 +43,15 @@ export default function RecipeDetailScreen() {
       for (const ing of missingIngredients) {
         await addItem(ing.name, 1, '');
       }
-      Alert.alert(
-        'Added to cart!',
-        `${missingIngredients.length} ingredient${missingIngredients.length > 1 ? 's' : ''} added to your shopping list.`,
-        [
-          { text: 'View List', onPress: () => router.push('/(tabs)/shopping') },
-          { text: 'Stay here', style: 'cancel' },
-        ],
-      );
+      hapticSuccess();
+      showToast({
+        message: `${missingIngredients.length} ingredient${missingIngredients.length > 1 ? 's' : ''} added to shopping list`,
+        type: 'success',
+        action: { label: 'View', onPress: () => router.push('/(tabs)/shopping') },
+      });
     } catch {
-      Alert.alert('Error', 'Could not add items to your list. Please try again.');
+      hapticError();
+      showToast({ message: 'Could not add items to your list. Please try again.', type: 'error' });
     } finally {
       setAddingToCart(false);
     }

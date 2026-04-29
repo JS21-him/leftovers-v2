@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert,
+  View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 
 // ─── Diet options ──────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ type Step = 'welcome' | 'preferences' | 'scan';
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [step, setStep] = useState<Step>('welcome');
   const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
   const [householdSize, setHouseholdSize] = useState<string>('2');
@@ -43,27 +45,43 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ── Anonymous auth + profile update ──────────────────────────────────────
+  // ── Anonymous auth + persist prefs ──────────────────────────────────────
+  async function signInAndSavePrefs(): Promise<boolean> {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      showToast({ message: error.message, type: 'error' });
+      return false;
+    }
+    if (data.user) {
+      const sizeNum = householdSize === '6+' ? 6 : parseInt(householdSize, 10);
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        dietary_preferences: selectedDiets,
+        household_size: sizeNum,
+      });
+    }
+    return true;
+  }
+
   async function handleScanStart() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error) {
-        Alert.alert('Error', error.message);
-        return;
-      }
-      if (data.user) {
-        // Persist preferences immediately — anonymous session still has a user_id
-        const sizeNum = householdSize === '6+' ? 6 : parseInt(householdSize, 10);
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          dietary_preferences: selectedDiets,
-          household_size: sizeNum,
-        });
-      }
-      router.replace('/scan-preview');
+      const ok = await signInAndSavePrefs();
+      if (ok) router.replace('/scan-preview');
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      showToast({ message: e instanceof Error ? e.message : 'Something went wrong. Please try again.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSkipToFridge() {
+    setLoading(true);
+    try {
+      const ok = await signInAndSavePrefs();
+      if (ok) router.replace('/(tabs)/fridge');
+    } catch (e) {
+      showToast({ message: e instanceof Error ? e.message : 'Something went wrong. Please try again.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -188,7 +206,7 @@ export default function OnboardingScreen() {
           style={styles.cta}
         />
 
-        <TouchableOpacity style={styles.secondaryBtn} onPress={handleScanStart} disabled={loading}>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={handleSkipToFridge} disabled={loading}>
           <Text style={styles.secondaryText}>Add items manually instead</Text>
         </TouchableOpacity>
 

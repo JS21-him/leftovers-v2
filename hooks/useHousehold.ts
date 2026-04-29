@@ -34,7 +34,7 @@ export function useHousehold() {
       .select('household_id')
       .eq('user_id', user.id)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (memberError || !memberRow) { setLoading(false); return; }
 

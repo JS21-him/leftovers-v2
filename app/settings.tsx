@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, Alert, ScrollView, Share, ActivityIndicator,
+  TouchableOpacity, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
+import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { purchasePremium, restorePurchases } from '@/lib/purchases';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -21,8 +24,11 @@ const DIET_OPTIONS = [
   { id: 'kosher', label: 'Kosher' },
 ];
 
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
 export default function SettingsScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { isPremium, refetch } = useSubscription();
   const { household, members, loading: householdLoading, joinByCode, refreshInviteCode } = useHousehold();
   const [joinCode, setJoinCode] = useState('');
@@ -60,7 +66,7 @@ export default function SettingsScreen() {
       await supabase.from('profiles').upsert({ id: user.id, dietary_preferences: selectedDiets });
     }
     setSavingPrefs(false);
-    Alert.alert('Saved', 'Your preferences have been updated. Recipes will reflect these next time.');
+    showToast({ message: 'Preferences saved', type: 'success' });
   }
 
   async function signOut() {
@@ -73,9 +79,9 @@ export default function SettingsScreen() {
     const success = await purchasePremium();
     if (success) {
       refetch();
-      Alert.alert('Welcome to Premium!', 'All features are now unlocked.');
+      showToast({ message: 'Welcome to Premium! All features unlocked.', type: 'success' });
     } else {
-      Alert.alert('Purchase cancelled', 'You can upgrade any time from Settings.');
+      showToast({ message: 'Purchase cancelled. You can upgrade any time.', type: 'info' });
     }
   }
 
@@ -83,9 +89,9 @@ export default function SettingsScreen() {
     const restored = await restorePurchases();
     if (restored) {
       refetch();
-      Alert.alert('Restored', 'Your premium subscription has been restored.');
+      showToast({ message: 'Premium subscription restored!', type: 'success' });
     } else {
-      Alert.alert('Not found', 'No previous purchase found for this account.');
+      showToast({ message: 'No previous purchase found for this account.', type: 'info' });
     }
   }
 
@@ -102,10 +108,10 @@ export default function SettingsScreen() {
     const err = await joinByCode(joinCode);
     setJoining(false);
     if (err) {
-      Alert.alert('Could not join', err);
+      showToast({ message: err, type: 'error' });
     } else {
       setJoinCode('');
-      Alert.alert('Joined!', 'You are now sharing a fridge with this household.');
+      showToast({ message: 'Joined! You are now sharing a fridge with this household.', type: 'success' });
     }
   }
 
@@ -217,6 +223,33 @@ export default function SettingsScreen() {
         {/* Account */}
         <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>ACCOUNT</Text>
         <Button label="Sign Out" onPress={signOut} variant="secondary" style={styles.item} />
+
+        {/* App Info */}
+        <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>APP INFO</Text>
+        <View style={styles.card}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Version</Text>
+            <Text style={styles.infoValue}>{APP_VERSION}</Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => Linking.openURL('https://leftoversapp.com/privacy')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.linkText}>Privacy Policy</Text>
+          <Text style={styles.linkArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => Linking.openURL('https://leftoversapp.com/terms')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.linkText}>Terms of Service</Text>
+          <Text style={styles.linkArrow}>→</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </View>
   );
@@ -280,4 +313,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
+
+  // App info
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  infoLabel: { ...Typography.body, color: Colors.textMuted },
+  infoValue: { ...Typography.body, color: Colors.textPrimary, fontWeight: '600' },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  linkText: { ...Typography.body, color: Colors.primary, fontWeight: '600' },
+  linkArrow: { ...Typography.body, color: Colors.textMuted },
 });

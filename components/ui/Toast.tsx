@@ -4,6 +4,7 @@
  * Usage:
  *   const { showToast } = useToast();
  *   showToast({ message: 'Item added!', type: 'success' });
+ *   showToast({ message: 'Item removed', type: 'info', action: { label: 'Undo', onPress: () => {} } });
  *
  * Wrap the root layout with <ToastProvider>.
  */
@@ -15,7 +16,7 @@ import React, {
   useRef,
   useEffect,
 } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -29,14 +30,20 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type ToastType = 'success' | 'error' | 'info';
 
+interface ToastAction {
+  label: string;
+  onPress: () => void;
+}
+
 interface ToastMessage {
   id: string;
   message: string;
   type: ToastType;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  showToast: (opts: { message: string; type?: ToastType }) => void;
+  showToast: (opts: { message: string; type?: ToastType; action?: ToastAction }) => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -64,22 +71,25 @@ function ToastItem({
     opacity: opacity.value,
   }));
 
+  const dismiss = useCallback(() => {
+    opacity.value = withTiming(0, { duration: 250 });
+    translateY.value = withTiming(
+      -60,
+      { duration: 250 },
+      (finished) => {
+        if (finished) runOnJS(onDone)(toast.id);
+      },
+    );
+  }, []);
+
   useEffect(() => {
     // Slide in
     translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
     opacity.value = withTiming(1, { duration: 200 });
 
-    // Auto-dismiss after 2.8s
-    const timer = setTimeout(() => {
-      opacity.value = withTiming(0, { duration: 250 });
-      translateY.value = withTiming(
-        -60,
-        { duration: 250 },
-        (finished) => {
-          if (finished) runOnJS(onDone)(toast.id);
-        },
-      );
-    }, 2800);
+    // Auto-dismiss after 3.5s (longer when there's an action)
+    const delay = toast.action ? 4500 : 2800;
+    const timer = setTimeout(dismiss, delay);
 
     return () => clearTimeout(timer);
   }, []);
@@ -102,6 +112,18 @@ function ToastItem({
       <Text style={styles.toastText} numberOfLines={2}>
         {toast.message}
       </Text>
+      {toast.action && (
+        <TouchableOpacity
+          onPress={() => {
+            toast.action!.onPress();
+            dismiss();
+          }}
+          style={styles.actionBtn}
+          hitSlop={8}
+        >
+          <Text style={styles.actionText}>{toast.action.label}</Text>
+        </TouchableOpacity>
+      )}
     </Animated.View>
   );
 }
@@ -113,9 +135,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const counter = useRef(0);
 
   const showToast = useCallback(
-    ({ message, type = 'info' }: { message: string; type?: ToastType }) => {
+    ({ message, type = 'info', action }: { message: string; type?: ToastType; action?: ToastAction }) => {
       const id = String(++counter.current);
-      setToasts((prev) => [...prev.slice(-2), { id, message, type }]);
+      setToasts((prev) => [...prev.slice(-2), { id, message, type, action }]);
     },
     [],
   );
@@ -133,7 +155,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           styles.container,
           { top: insets.top + (Platform.OS === 'ios' ? 8 : 12) },
         ]}
-        pointerEvents="none"
+        pointerEvents="box-none"
       >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDone={remove} />
@@ -181,5 +203,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     fontSize: 13,
+  },
+  actionBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: Radius.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    flexShrink: 0,
+  },
+  actionText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 12,
   },
 });

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
-  View, Text, SectionList, StyleSheet, TouchableOpacity, SafeAreaView,
+  View, Text, SectionList, StyleSheet, TouchableOpacity, SafeAreaView, RefreshControl,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -16,15 +16,18 @@ import { ScanButtons } from '@/components/fridge/ScanButtons';
 import { EatThisFirstBanner } from '@/components/fridge/EatThisFirstBanner';
 import { FridgeSkeleton } from '@/components/ui/Skeleton';
 import { useFridge } from '@/hooks/useFridge';
+import { useShopping } from '@/hooks/useShopping';
 import { useToast } from '@/components/ui/Toast';
 import { hapticSuccess, hapticError } from '@/lib/haptics';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import type { NewFridgeItem } from '@/hooks/useFridge';
 
 export default function FridgeScreen() {
-  const { items, loading, addItem, deleteItem, getExpiringSoon } = useFridge();
+  const { items, loading, addItem, deleteItem, refetch, getExpiringSoon } = useFridge();
+  const { addItem: addToShopping } = useShopping();
   const { showToast } = useToast();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // FAB bounce-in on mount
   const fabScale = useSharedValue(0);
@@ -38,7 +41,7 @@ export default function FridgeScreen() {
   const urgentItems = useMemo(() => getExpiringSoon(2), [items]);
   const expiringSoon = useMemo(
     () => getExpiringSoon(5).filter((i) => !urgentItems.find((u) => u.id === i.id)),
-    [items],
+    [items, urgentItems],
   );
   const allOther = useMemo(
     () => items.filter((i) => !getExpiringSoon(5).find((e) => e.id === i.id)),
@@ -46,9 +49,16 @@ export default function FridgeScreen() {
   );
 
   const sections = useMemo(() => [
+    ...(urgentItems.length > 0 ? [{ title: 'USE FIRST', data: urgentItems }] : []),
     ...(expiringSoon.length > 0 ? [{ title: 'EXPIRES SOON', data: expiringSoon }] : []),
     ...(allOther.length > 0 ? [{ title: 'IN YOUR FRIDGE', data: allOther }] : []),
-  ], [expiringSoon, allOther]);
+  ], [urgentItems, expiringSoon, allOther]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   const handleItemsScanned = useCallback(async (newItems: NewFridgeItem[]) => {
     let addedCount = 0;
@@ -82,8 +92,16 @@ export default function FridgeScreen() {
   const handleDeleteItem = useCallback(async (id: string) => {
     const item = items.find((i) => i.id === id);
     await deleteItem(id);
-    showToast({ message: `${item?.name ?? 'Item'} removed`, type: 'info' });
-  }, [deleteItem, items, showToast]);
+    if (item) {
+      showToast({
+        message: `${item.name} removed — add to shopping list?`,
+        type: 'info',
+        action: { label: 'Add', onPress: () => addToShopping(item.name, item.quantity, item.unit) },
+      });
+    } else {
+      showToast({ message: 'Item removed', type: 'info' });
+    }
+  }, [deleteItem, items, showToast, addToShopping]);
 
   if (loading) {
     return (
@@ -120,6 +138,14 @@ export default function FridgeScreen() {
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={Colors.primary}
+              colors={[Colors.primary]}
+            />
+          }
         />
       )}
 

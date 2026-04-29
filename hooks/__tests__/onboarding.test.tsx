@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 import OnboardingScreen from '@/app/(auth)/onboarding';
 
 const mockReplace = jest.fn();
@@ -20,6 +19,12 @@ jest.mock('react-native-svg', () => {
     Svg: ({ children, ...p }: any) => <View {...p}>{children}</View>,
   };
 });
+
+// Mock the Toast hook so we can assert on error toasts
+const mockShowToast = jest.fn();
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
 
 const mockUpsert = jest.fn().mockResolvedValue({ error: null });
 const mockSignInAnonymously = jest.fn().mockResolvedValue({
@@ -82,16 +87,26 @@ describe('OnboardingScreen', () => {
     });
   });
 
-  it('shows alert if signInAnonymously returns error', async () => {
+  it('shows error toast and does not navigate if signInAnonymously returns error', async () => {
     mockSignInAnonymously.mockResolvedValueOnce({ data: { user: null }, error: { message: 'Network error' } });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { getByText } = render(<OnboardingScreen />);
     await advanceToScanStep(getByText, fireEvent);
     fireEvent.press(getByText('Scan My Fridge'));
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Error', 'Network error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Network error', type: 'error' }),
+      );
       expect(mockReplace).not.toHaveBeenCalled();
     });
-    alertSpy.mockRestore();
+  });
+
+  it('Add items manually goes directly to fridge without scan', async () => {
+    const { getByText } = render(<OnboardingScreen />);
+    await advanceToScanStep(getByText, fireEvent);
+    fireEvent.press(getByText('Add items manually instead'));
+    await waitFor(() => {
+      expect(mockSignInAnonymously).toHaveBeenCalled();
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/fridge');
+    });
   });
 });
