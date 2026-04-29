@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView,
+  StyleSheet, ActivityIndicator, KeyboardAvoidingView,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, Radius, Typography } from '@/constants/theme';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function SignUpModal({ visible, onSkip, onSuccess }: Props) {
+  const { showToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -51,12 +53,12 @@ export function SignUpModal({ visible, onSkip, onSuccess }: Props) {
     try {
       const { error } = await supabase.auth.updateUser({ email, password });
       if (error) {
-        Alert.alert('Error', error.message);
+        showToast({ message: error.message, type: 'error' });
       } else {
         onSuccess();
       }
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+      showToast({ message: e instanceof Error ? e.message : 'Something went wrong.', type: 'error' });
     } finally {
       setLoading(false);
     }

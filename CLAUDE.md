@@ -10,14 +10,38 @@ This file provides guidance to Claude Code when working with this repository.
 - After changes, commit and push to GitHub (user wants shipped code, not drafts)
 - When Expo build errors appear, check `_layout.tsx`, `purchases.ts`, and package versions first
 
+## Starting the App - Correct Command
+
+```powershell
+npm start
+```
+
+This runs `cross-env NODE_OPTIONS=--dns-result-order=ipv4first expo start --clear`.
+The `cross-env` prefix fixes the Node 24 DNS issue that causes `fetch failed` on startup.
+The `--clear` flag wipes Metro's cache on every start to prevent stale bundle errors.
+
+### If the app won't load on your phone:
+1. Make sure phone and PC are on the same WiFi
+2. Or use tunnel mode: `npx expo start --tunnel`
+3. If you see `fetch failed` in the terminal: `npm start` already fixes this via `cross-env`
+
+### Startup Checklist
+- [ ] `.env.local` exists at project root with all 3 keys (see Environment Variables below)
+- [ ] Supabase edge functions are deployed (`supabase functions deploy`)
+- [ ] `ANTHROPIC_API_KEY` is set as a Supabase secret
+- [ ] Phone and PC on same WiFi (or use `--tunnel`)
+- [ ] Expo Go app is installed on phone
+- [ ] Scan the QR code in the terminal with the Expo Go app
+
 ## Dev Environment Notes
 
 - Slash commands (e.g., /plugin) run inside Claude Code, NOT in a separate terminal
-- When starting Expo, kill stale ports first: `lsof -ti:8081 | xargs kill -9`
 - Assume user is testing on Expo Go unless told otherwise
 - Only one terminal needed — no local backend server (AI runs via Supabase Edge Functions)
-- If phone can't connect on same WiFi, use tunnel mode: `npx expo start --tunnel --clear`
+- If phone can't connect on same WiFi, use tunnel mode: `npx expo start --tunnel`
 - The phone and PC must be on the same WiFi, OR use `--tunnel` to bypass network issues
+- Node 24 on Windows requires the `--dns-result-order=ipv4first` flag — `npm start` handles this automatically via `cross-env`
+- `.npmrc` has `legacy-peer-deps=true` — required because `jest-expo` pins an older jest peer dep
 
 ## Workflow Defaults
 

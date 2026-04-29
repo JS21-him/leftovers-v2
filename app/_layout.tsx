@@ -6,7 +6,22 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { initializePurchases } from '@/lib/purchases';
 import { ToastProvider } from '@/components/ui/Toast';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { Colors } from '@/constants/theme';
+import { Config } from '@/constants/config';
+
+// ─── Dev-time env var check ───────────────────────────────────────────────────
+if (__DEV__) {
+  if (!Config.supabaseUrl) {
+    console.warn('[Leftovers] ⚠️  EXPO_PUBLIC_SUPABASE_URL is not set in .env.local');
+  }
+  if (!Config.supabaseAnonKey) {
+    console.warn('[Leftovers] ⚠️  EXPO_PUBLIC_SUPABASE_ANON_KEY is not set in .env.local');
+  }
+  if (!Config.revenueCatKey) {
+    console.warn('[Leftovers] ℹ️  EXPO_PUBLIC_REVENUECAT_KEY is not set — premium features will be skipped');
+  }
+}
 
 export default function RootLayout() {
   const { session, loading } = useAuth();
@@ -33,14 +48,15 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ToastProvider>
+          <OfflineBanner />
           <Stack
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: Colors.background },
-              // Native slide animation for all stack screens
               animation: 'slide_from_right',
             }}
           >
+            <Stack.Screen name="index" options={{ animation: 'none' }} />
             <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
             <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
             <Stack.Screen name="scan-preview" />
