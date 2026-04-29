@@ -16,9 +16,11 @@ This file provides guidance to Claude Code when working with this repository.
 npm start
 ```
 
-This runs `cross-env NODE_OPTIONS=--dns-result-order=ipv4first expo start --clear`.
-The `cross-env` prefix fixes the Node 24 DNS issue that causes `fetch failed` on startup.
-The `--clear` flag wipes Metro's cache on every start to prevent stale bundle errors.
+This runs `cross-env NODE_OPTIONS=--dns-result-order=ipv4first expo start --offline --clear`.
+
+- `--offline` stops Expo CLI from making update-check requests on startup (these fail on Node 24 due to a DNS change). It does NOT block the app's own Supabase/API calls — those still work normally.
+- `cross-env NODE_OPTIONS=--dns-result-order=ipv4first` fixes Node 24's IPv6-first DNS preference for any remaining internal fetch calls.
+- `--clear` wipes Metro's cache on every start to prevent stale bundle errors.
 
 ### If the app won't load on your phone:
 1. Make sure phone and PC are on the same WiFi
